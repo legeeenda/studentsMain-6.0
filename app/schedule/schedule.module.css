@@ -1,0 +1,38 @@
+.scheduleContainer {
+    display: flex;
+    gap: 20px;
+    overflow-x: auto;
+  }
+  
+  .dayBlock {
+    flex: 0 0 200px; /* Фиксированная ширина для вертикальных блоков */
+    background-color: #f3f4f6;
+    padding: 16px;
+    border-radius: 8px;
+    box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
+  }
+  
+  .dayBlock h2 {
+    font-size: 1.5em;
+    margin-bottom: 10px;
+    color: #333;
+  }
+  
+  .dayBlock ul {
+    list-style-type: none;
+    padding: 0;
+  }
+  
+  .dayBlock li {
+    padding: 8px 0;
+    border-bottom: 1px solid #ddd;
+  }
+  
+  .dayBlock li:last-child {
+    border-bottom: none;
+  }
+  
+  .dayBlock strong {
+    color: #1d4ed8; /* Цвет для времени */
+  }
+  

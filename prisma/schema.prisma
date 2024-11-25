@@ -1,0 +1,17 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Homework {
+  id      Int    @id @default(autoincrement()) // Поле id с автоинкрементом
+  user_id String // Поле user_id как строка (совместимо с Supabase auth)
+  email   String
+  task    String
+
+  @@map("Homework") // Название таблицы в Supabase
+}
