@@ -98,7 +98,7 @@ export default function HomeworkList() {
     if (error) {
       console.error("Ошибка добавления задания:", error);
     } else {
-      setTasks((prevTasks) => [...prevTasks, ...data]);
+      setTasks((prevTasks) => [...prevTasks, ]);
       setShowAddForm(false);
     }
   };

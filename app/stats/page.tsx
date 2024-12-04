@@ -23,11 +23,11 @@ export default function Statistics() {
     async function fetchStudents() {
       try {
         setLoading(true);
-        // Получаем студентов, отсортированных по баллам
+
         const { data, error } = await supabase
           .from("students")
           .select("*")
-          .order("scores", { ascending: false }); // Сортировка по убыванию
+          .order("scores", { ascending: false }); 
         if (error) throw error;
         setStudents(data);
       } catch (error) {
