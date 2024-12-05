@@ -35,4 +35,23 @@
   .dayBlock strong {
     color: #1d4ed8; /* Цвет для времени */
   }
+
+  .navigateButton {
+    margin-top: 20px;
+    padding: 10px 20px;
+    background-color: #0070f3;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: background-color 0.3s ease;
+  }
+  
+  .navigateButton:hover {
+    background-color: #0056b3;
+  }
+  
+
+
   

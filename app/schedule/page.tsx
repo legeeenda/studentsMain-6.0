@@ -2,14 +2,15 @@
 
 import { createClient } from "./supabase/client";
 import { useEffect, useState } from "react";
-import styles from "./schedule.module.css"; 
+import { useRouter } from "next/navigation"; // Импорт маршрутизатора
+import styles from "./schedule.module.css";
 
 const supabase = createClient();
 
 interface ScheduleItem {
   time: string;
   subject: string;
-  description?: string; 
+  description?: string;
 }
 
 interface ScheduleData {
@@ -19,27 +20,26 @@ interface ScheduleData {
 export default function SchedulePage() {
   const [schedule, setSchedule] = useState<ScheduleData>({});
   const [isLoading, setIsLoading] = useState(true);
+  const router = useRouter(); // Инициализация маршрутизатора
 
   useEffect(() => {
     const fetchSchedule = async () => {
       setIsLoading(true);
-      const { data, error } = await supabase.from('schedule').select('*');
-      
+      const { data, error } = await supabase.from("schedule").select("*");
+
       if (error) {
         console.error("Ошибка при получении расписания:", error);
       } else {
-        console.log("Полученные данные из БД:", data); // Проверка данных
         const groupedSchedule = data.reduce((acc: ScheduleData, item: any) => {
           const day = item.day.trim(); // Убираем пробелы
           if (!acc[day]) acc[day] = [];
-          acc[day].push({ 
-            time: item.time, 
+          acc[day].push({
+            time: item.time,
             subject: item.subject,
-            description: item.description 
+            description: item.description,
           });
           return acc;
         }, {});
-        console.log("Сгруппированные данные расписания:", groupedSchedule); // Проверка группировки
         setSchedule(groupedSchedule);
       }
       setIsLoading(false);
@@ -73,6 +73,13 @@ export default function SchedulePage() {
           ))}
         </div>
       )}
+      {/* Добавляем кнопку для навигации */}
+      <button
+        className={styles.navigateButton}
+        onClick={() => router.push("/main")}
+      >
+        Перейти на главную
+      </button>
     </div>
   );
 }

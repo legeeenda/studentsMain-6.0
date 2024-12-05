@@ -7,12 +7,17 @@ import "../main/TestPage.css";
 
 export default function StudentDashboard() {
     const [student, setStudent] = useState(null);
-    const [loading, setLoading] = useState(true); // Добавляем состояние загрузки
+    const [loading, setLoading] = useState(true); 
     const router = useRouter();
     const supabase = createClient();
 
+
+    // test@test.com   123123
+    // 222@com.ru 123123
+    // users@mail.ru 123123
+
     useEffect(() => {
-        // Получаем данные текущего пользователя (студента)
+
         const fetchStudentData = async () => {
             const { data: user, error: userError } = await supabase.auth.getUser();
 
@@ -24,41 +29,41 @@ export default function StudentDashboard() {
 
             if (user && user.user) {
                 const { data, error } = await supabase
-                    .from("students") // Проверь, что таблица "students" действительно существует
+                    .from("students")
                     .select("*")
                     .eq("user_id", user.user.id)
-                    .maybeSingle(); // Используем maybeSingle для безопасного получения данных
+                    .maybeSingle(); 
 
                 if (error) {
                     console.error("Ошибка при получении данных студента:", error);
                 } else if (!data) {
                     console.log("Данные студента не найдены.");
                 } else {
-                    setStudent(data); // Устанавливаем данные студента
+                    setStudent(data); 
                 }
             } else {
-                // Перенаправление на страницу входа, если пользователь не авторизован
+        
                 router.push("/auth");
             }
 
-            setLoading(false); // Останавливаем состояние загрузки
+            setLoading(false); 
         };
 
         fetchStudentData();
     }, []);
 
     if (loading) {
-        return <p>Loading...</p>; // Пока данные загружаются
+        return <p>Loading...</p>; 
     }
 
     if (!student) {
-        return <p>Данные студента не найдены</p>; // Если данных студента нет
+        return <p>Данные студента не найдены</p>; 
     }
     
 
     return (
       <div className="dashboard-container">
-          {/* Верхний правый угол: Аватар и имя */}
+          {}
           <div className="header">
             <div className="namecomp">
               <h1>НАЗВАНИЕ ПРОЕКТА. THE LEGEEENDSSSS</h1>

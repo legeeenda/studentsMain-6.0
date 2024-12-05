@@ -1,5 +1,5 @@
-"use client";
 
+"use client";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createClient } from "../../utils/supabase/client";
@@ -16,27 +16,25 @@ interface Task {
 
 export default function HomeworkList() {
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [completedTasks, setCompletedTasks] = useState<number[]>([]);
+  const [completedStatuses, setCompletedStatuses] = useState<Record<number, string>>({});
   const [isTeacher, setIsTeacher] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
-    const fetchTasks = async () => {
-      const { data: tasksData, error } = await supabase
+    const fetchTasksAndStatuses = async () => {
+      const { data: tasksData, error: tasksError } = await supabase
         .from("homework_tasks")
         .select("*");
 
-      if (error) {
-        console.error("Ошибка получения заданий:", error);
-      } else {
-        setTasks(tasksData || []);
+      if (tasksError) {
+        console.error("Ошибка получения заданий:", tasksError);
+        return;
       }
-    };
 
-    const fetchCompletedTasks = async () => {
+      setTasks(tasksData || []);
+
       const { data: authData, error: authError } = await supabase.auth.getUser();
-
       if (authError || !authData?.user) {
         console.error("Ошибка получения данных пользователя:", authError);
         return;
@@ -44,22 +42,38 @@ export default function HomeworkList() {
 
       const userId = authData.user.id;
 
-      const { data: completedData, error: completedError } = await supabase
-        .from("homework_progress")
-        .select("task_id")
-        .eq("user_id", userId)
-        .eq("completed", true);
+      const { data: statusesData, error: statusesError } = await supabase
+        .from("respon")
+        .select("task_id, status, grade")
+        .eq("user_id", userId);
 
-      if (completedError) {
-        console.error("Ошибка получения выполненных заданий:", completedError);
-      } else {
-        setCompletedTasks(completedData?.map((item) => item.task_id) || []);
+      if (statusesError) {
+        console.error("Ошибка получения статусов заданий:", statusesError);
+        return;
       }
+
+      const now = new Date();
+      const statuses: Record<number, string> = {};
+      tasksData.forEach((task) => {
+        const response = statusesData?.find((res) => res.task_id === task.id);
+        if (response?.status === "Сдано") {
+          statuses[task.id] = response.grade
+            ? `Оценено: ${response.grade}`
+            : "Сдано";
+        } else if (response?.status === "Ожидание проверки") {
+          statuses[task.id] = "Ожидание проверки";
+        } else if (new Date(task.deadline) < now) {
+          statuses[task.id] = "Просрочено";
+        } else {
+          statuses[task.id] = "Не сдано";
+        }
+      });
+
+      setCompletedStatuses(statuses);
     };
 
     const fetchRole = async () => {
       const { data: authData, error: authError } = await supabase.auth.getUser();
-
       if (authError || !authData?.user) {
         console.error("Ошибка получения данных пользователя:", authError);
         return;
@@ -80,29 +94,19 @@ export default function HomeworkList() {
       }
     };
 
-    fetchTasks();
-    fetchCompletedTasks();
+    fetchTasksAndStatuses();
     fetchRole();
   }, []);
 
-  const isTaskExpired = (deadline: string): boolean => {
-    const now = new Date();
-    return new Date(deadline) < now;
-  };
-
   const handleAddTask = async (newTask: Task) => {
-    const { data, error } = await supabase
-      .from("homework_tasks")
-      .insert([newTask]);
-  
+    const { data, error } = await supabase.from("homework_tasks").insert([newTask]);
     if (error) {
       console.error("Ошибка добавления задания:", error);
     } else {
-      setTasks((prevTasks) => [...prevTasks, ]);
+      setTasks((prevTasks) => [...prevTasks, newTask]);
       setShowAddForm(false);
     }
   };
-  
 
   return (
     <div className="homework-container">
@@ -115,44 +119,41 @@ export default function HomeworkList() {
           {showAddForm ? "Отменить" : "Добавить задание"}
         </button>
       )}
+      <button
+        className="redirect-button"
+        onClick={() => router.push("/main")}
+      >
+        Вернуться на главную
+      </button>
       {showAddForm && <AddTaskForm onAddTask={handleAddTask} />}
       <div className="task-list">
-      {tasks.length === 0 ? (
-        <p>Заданий пока нет!</p>
-      ) : (
-        tasks.map((task) => (
-          <div
-            key={task.id}
-            className={`task-card ${
-              completedTasks.includes(task.id) ? "completed" : ""
-            }`}
-          >
-            <h2>{task.title}</h2>
-            <p>{task.description}</p>
-            <p>Баллы: {task.points}</p>
-            <p>Дедлайн: {new Date(task.deadline).toLocaleString()}</p>
-            <p className="status">
-              Статус:{" "}
-              {completedTasks.includes(task.id)
-                ? "Сдано"
-                : isTaskExpired(task.deadline)
-                ? "Просрочено"
-                : "Не сдано"}
-            </p>
-            {isTaskExpired(task.deadline) && !completedTasks.includes(task.id) ? (
-              <p style={{ color: "red" }}>Задание просрочено</p>
-            ) : (
+        {tasks.length === 0 ? (
+          <p>Заданий пока нет!</p>
+        ) : (
+          tasks.map((task) => (
+            <div
+              key={task.id}
+              className={`task-card ${
+                completedStatuses[task.id]?.startsWith("Сдано") ? "completed" : ""
+              }`}
+            >
+              <h2>{task.title}</h2>
+              <p>{task.description}</p>
+              <p>Баллы: {task.points}</p>
+              <p>Дедлайн: {new Date(task.deadline).toLocaleString()}</p>
+              <p className="status">Статус: {completedStatuses[task.id]}</p>
               <button
                 onClick={() => router.push(`/homework/${task.id}`)}
                 className="task-button"
               >
-                {completedTasks.includes(task.id) ? "Просмотреть" : "Выполнить"}
+                {completedStatuses[task.id]?.startsWith("Сдано")
+                  ? "Просмотреть"
+                  : "Выполнить"}
               </button>
-            )}
-          </div>
-        ))
-      )}
-    </div>
+            </div>
+          ))
+        )}
+      </div>
     </div>
   );
 }
@@ -160,7 +161,7 @@ export default function HomeworkList() {
 function AddTaskForm({ onAddTask }: { onAddTask: (task: Task) => void }) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [taskContent, setTaskContent] = useState(""); 
+  const [taskContent, setTaskContent] = useState("");
   const [points, setPoints] = useState(0);
   const [deadline, setDeadline] = useState("");
 
@@ -175,7 +176,7 @@ function AddTaskForm({ onAddTask }: { onAddTask: (task: Task) => void }) {
       description,
       points,
       deadline,
-      task: taskContent, // Передача текста задания
+      task: taskContent,
     };
     onAddTask(newTask);
   };
@@ -214,3 +215,5 @@ function AddTaskForm({ onAddTask }: { onAddTask: (task: Task) => void }) {
     </div>
   );
 }
+
+

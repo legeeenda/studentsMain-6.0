@@ -1,3 +1,4 @@
+
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
@@ -45,28 +46,28 @@ export default function HomeworkTask() {
   useEffect(() => {
     const fetchTaskAndResponses = async () => {
       setIsLoading(true);
-  
+
       const { data: taskData, error: taskError } = await supabase
         .from("homework_tasks")
         .select("*")
         .eq("id", id)
         .single();
-  
+
       if (taskError) {
         console.error("Ошибка загрузки задания:", taskError);
       } else {
         setTask(taskData);
       }
-  
+
       if (role === "student") {
         const { data: authData } = await supabase.auth.getUser();
         const { data: responseData, error: responseError } = await supabase
           .from("respon")
-          .select("response, grade, calculated_points")
+          .select("response, grade, calculated_points, status")
           .eq("task_id", id)
           .eq("user_id", authData.user.id)
           .single();
-  
+
         if (responseError) {
           console.error("Ошибка загрузки ответа студента:", responseError);
         } else {
@@ -76,9 +77,9 @@ export default function HomeworkTask() {
       } else if (role === "teacher") {
         const { data: responsesData, error: responsesError } = await supabase
           .from("respon")
-          .select("user_id, response, grade, calculated_points")
+          .select("user_id, response, grade, calculated_points, status")
           .eq("task_id", id);
-  
+
         if (responsesError) {
           console.error("Ошибка загрузки ответов студентов:", responsesError);
         } else {
@@ -89,7 +90,7 @@ export default function HomeworkTask() {
                 .select("name")
                 .eq("user_id", resp.user_id)
                 .single();
-  
+
               return {
                 ...resp,
                 name: studentData?.name || "Неизвестно",
@@ -99,13 +100,12 @@ export default function HomeworkTask() {
           setStudentResponses(enrichedResponses);
         }
       }
-  
+
       setIsLoading(false);
     };
-  
+
     fetchTaskAndResponses();
   }, [id, role]);
-  
 
   const handleSubmitAnswer = async () => {
     if (!answer.trim()) {
@@ -120,15 +120,45 @@ export default function HomeworkTask() {
     }
 
     const userId = authData.user.id;
-    const { error } = await supabase
-      .from("respon")
-      .insert({ user_id: userId, task_id: id, response: answer });
 
-    if (error) {
-      console.error("Ошибка сохранения ответа:", error);
+    const { data: existingResponse, error: fetchError } = await supabase
+      .from("respon")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("task_id", id)
+      .single();
+
+    if (fetchError && fetchError.code !== "PGRST116") {
+      console.error("Ошибка проверки существующего ответа:", fetchError);
+      return;
+    }
+
+    let saveError;
+
+    if (existingResponse) {
+      const { error } = await supabase
+        .from("respon")
+        .update({ response: answer, status: "Ожидание проверки" })
+        .eq("user_id", userId)
+        .eq("task_id", id);
+      saveError = error;
+    } else {
+      const { error } = await supabase
+        .from("respon")
+        .insert({
+          user_id: userId,
+          task_id: id,
+          response: answer,
+          status: "Ожидание проверки",
+        });
+      saveError = error;
+    }
+
+    if (saveError) {
+      console.error("Ошибка сохранения ответа:", saveError);
     } else {
       setSavedAnswer(answer);
-      alert("Ваш ответ успешно сохранен!");
+      console.log("Ваш ответ успешно сохранен и ожидает проверки!");
     }
   };
 
@@ -137,44 +167,44 @@ export default function HomeworkTask() {
       alert("Оценка должна быть от 2 до 5.");
       return;
     }
-  
+
     const points = Math.round((task.points / 5) * grade);
-  
+
     const { error } = await supabase
       .from("respon")
-      .update({ grade, calculated_points: points })
+      .update({ grade, calculated_points: points, status: "Сдано" })
       .eq("user_id", userId)
       .eq("task_id", id);
-  
+
     if (error) {
       console.error("Ошибка сохранения оценки:", error);
     } else {
       alert("Оценка успешно сохранена!");
-  
 
       setStudentResponses((prevResponses) =>
         prevResponses.map((resp) =>
           resp.user_id === userId
-            ? { ...resp, grade, calculated_points: points }
+            ? { ...resp, grade, calculated_points: points, status: "Сдано" }
             : resp
         )
       );
     }
   };
-  
 
   if (isLoading || !task) return <p>Загрузка задания...</p>;
 
   return (
     <div className="homework-container">
       <h1>{task.title}</h1>
+      <button onClick={() => router.push("/Task")} className="redirect-button">
+        Вернуться к заданиям
+      </button>
       <p>{task.description}</p>
       <h3>Задание:</h3>
       <p>{task.task}</p>
       <p>
         <strong>Баллы за задание:</strong> {task.points || 0}
       </p>
-
       {role === "student" ? (
         <div>
           {savedAnswer ? (
@@ -182,13 +212,20 @@ export default function HomeworkTask() {
               <p>
                 <strong>Ваш ответ:</strong> {savedAnswer}
               </p>
+              <p>
+                <strong>Статус:</strong>{" "}
+                {studentResponses?.status === "Сдано"
+                  ? "Сдано"
+                  : "Ожидание проверки"}
+              </p>
               {studentResponses?.grade ? (
                 <>
                   <p>
                     <strong>Оценка:</strong> {studentResponses.grade}
                   </p>
                   <p>
-                    <strong>Баллы:</strong> {studentResponses.calculated_points}
+                    <strong>Баллы:</strong>{" "}
+                    {studentResponses.calculated_points}
                   </p>
                 </>
               ) : (
@@ -216,6 +253,7 @@ export default function HomeworkTask() {
                 <th>Ответ</th>
                 <th>Оценка</th>
                 <th>Баллы</th>
+                <th>Статус</th>
               </tr>
             </thead>
             <tbody>
@@ -232,13 +270,17 @@ export default function HomeworkTask() {
                         min="2"
                         max="5"
                         onBlur={(e) =>
-                          handleGradeSubmit(resp.user_id, parseInt(e.target.value, 10))
+                          handleGradeSubmit(
+                            resp.user_id,
+                            parseInt(e.target.value, 10)
+                          )
                         }
                         placeholder="Оценка"
                       />
                     )}
                   </td>
                   <td>{resp.calculated_points || "—"}</td>
+                  <td>{resp.status || "—"}</td>
                 </tr>
               ))}
             </tbody>
